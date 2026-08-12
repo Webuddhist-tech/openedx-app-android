@@ -142,6 +142,16 @@ class CourseContainerFragment : Fragment(R.layout.fragment_course_container) {
         observe()
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.onCourseScreenResumed()
+    }
+
+    override fun onPause() {
+        viewModel.onCourseScreenPaused()
+        super.onPause()
+    }
+
     override fun onDestroyView() {
         snackBar?.dismiss()
         super.onDestroyView()

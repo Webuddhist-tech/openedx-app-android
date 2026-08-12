@@ -1,7 +1,7 @@
 package org.openedx.course.domain.interactor
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.last
 import org.openedx.core.BlockType
 import org.openedx.core.domain.interactor.CourseInteractor
 import org.openedx.core.domain.model.Block
@@ -33,7 +33,7 @@ class CourseInteractor(
         courseId: String,
         isNeedRefresh: Boolean
     ): CourseStructure {
-        return repository.getCourseStructureFlow(courseId, isNeedRefresh).first()
+        return repository.getCourseStructureFlow(courseId, isNeedRefresh).last()
     }
 
     override suspend fun getCourseStructureFromCache(courseId: String): CourseStructure {

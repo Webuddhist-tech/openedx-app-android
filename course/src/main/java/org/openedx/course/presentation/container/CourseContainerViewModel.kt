@@ -117,12 +117,19 @@ class CourseContainerViewModel(
     val hasInternetConnection: Boolean
         get() = networkConnection.isOnline()
 
+    private var isCourseScreenResumed = false
+    private var hasPendingCompletion = false
+
     init {
         viewModelScope.launch {
             courseNotifier.notifier.collect { event ->
                 when (event) {
                     is CourseCompletionSet -> {
-                        updateData()
+                        if (isCourseScreenResumed) {
+                            updateData()
+                        } else {
+                            hasPendingCompletion = true
+                        }
                     }
 
                     is CreateCalendarSyncEvent -> {
@@ -154,6 +161,18 @@ class CourseContainerViewModel(
                 }
             }
         }
+    }
+
+    fun onCourseScreenResumed() {
+        isCourseScreenResumed = true
+        if (hasPendingCompletion) {
+            hasPendingCompletion = false
+            updateData()
+        }
+    }
+
+    fun onCourseScreenPaused() {
+        isCourseScreenResumed = false
     }
 
     fun fetchCourseDetails() {
