@@ -55,6 +55,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
@@ -67,6 +69,7 @@ import org.openedx.core.ui.theme.appColors
 import org.openedx.core.utils.EmailUtil
 import org.openedx.foundation.extension.applyDarkModeIfEnabled
 import org.openedx.foundation.extension.isEmailValid
+import org.openedx.foundation.extension.readAsText
 import org.openedx.foundation.presentation.WindowSize
 import org.openedx.foundation.presentation.rememberWindowSize
 import org.openedx.foundation.presentation.windowSizeValue
@@ -386,6 +389,9 @@ private fun HTMLContentView(
     }
 
     val isDarkTheme = isSystemInDarkTheme()
+    val completionScript = remember(context) {
+        context.assets.readAsText("js_injection/completions.js")
+    }
 
     AndroidView(
         modifier = Modifier
@@ -525,6 +531,15 @@ private fun HTMLContentView(
                 isVerticalScrollBarEnabled = false
                 isHorizontalScrollBarEnabled = false
 
+                if (completionScript != null &&
+                    WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+                ) {
+                    WebViewCompat.addDocumentStartJavaScript(
+                        this,
+                        completionScript,
+                        setOf("*")
+                    )
+                }
                 loadUrl(url, coroutineScope, cookieManager)
                 applyDarkModeIfEnabled(isDarkTheme)
             }

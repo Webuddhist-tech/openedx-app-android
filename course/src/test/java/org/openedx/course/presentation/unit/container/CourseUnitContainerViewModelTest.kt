@@ -14,14 +14,17 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestRule
+import org.openedx.core.BlockType
 import org.openedx.core.CoreMocks
 import org.openedx.core.config.Config
 import org.openedx.core.domain.helper.VideoPreviewHelper
 import org.openedx.core.system.connection.NetworkConnection
+import org.openedx.core.system.notifier.CourseCompletionSet
 import org.openedx.core.system.notifier.CourseNotifier
 import org.openedx.course.domain.interactor.CourseInteractor
 import org.openedx.course.presentation.CourseAnalytics
@@ -316,5 +319,57 @@ class CourseUnitContainerViewModelTest {
 
         coVerify(exactly = 0) { interactor.getCourseStructure(any()) }
         coVerify(exactly = 1) { interactor.getCourseStructureForVideos(any()) }
+    }
+
+    @Test
+    fun `nested library child is shown and completed locally`() = runTest {
+        val courseNotifier = CourseNotifier()
+        val sequential = CoreMocks.mockChapterBlock.copy(
+            id = "sequential",
+            type = BlockType.SEQUENTIAL,
+            descendants = listOf("vertical")
+        )
+        val vertical = CoreMocks.mockChapterBlock.copy(
+            id = "vertical",
+            type = BlockType.VERTICAL,
+            descendants = listOf("library")
+        )
+        val library = CoreMocks.mockChapterBlock.copy(
+            id = "library",
+            type = BlockType.LIBRARY_CONTENT,
+            descendants = listOf("problem")
+        )
+        val problem = CoreMocks.mockChapterBlock.copy(
+            id = "problem",
+            type = BlockType.PROBLEM,
+            descendants = emptyList(),
+            completion = 0.0
+        )
+        val structure = CoreMocks.mockCourseStructure.copy(
+            id = "course",
+            blockData = listOf(sequential, vertical, library, problem)
+        )
+        coEvery { interactor.getCourseStructure("course", false) } returns structure
+
+        val viewModel = CourseUnitContainerViewModel(
+            "course",
+            "vertical",
+            CourseViewMode.FULL,
+            config,
+            interactor,
+            courseNotifier,
+            analytics,
+            networkConnection,
+            videoPreviewHelper,
+            resourceManager
+        )
+
+        viewModel.loadBlocks("problem")
+        advanceUntilIdle()
+        assertEquals(listOf("problem"), viewModel.descendantsBlocks.value.map { it.id })
+
+        courseNotifier.send(CourseCompletionSet("course", "problem"))
+        advanceUntilIdle()
+        assertEquals(1.0, viewModel.descendantsBlocks.value.single().completion, 0.0)
     }
 }

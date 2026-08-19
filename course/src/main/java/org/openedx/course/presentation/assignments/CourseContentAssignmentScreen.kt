@@ -313,6 +313,9 @@ private fun AssignmentGroupSection(
 @Composable
 private fun AssignmentButton(assignment: Block, isSelected: Boolean, onClick: () -> Unit) {
     val isDuePast = assignment.due != null && assignment.due!! < Date()
+    val hasFullScore = assignment.assignmentProgress?.let {
+        it.numPointsPossible > 0 && it.numPointsEarned >= it.numPointsPossible
+    } == true
     val cardBorderColor = when {
         isSelected -> MaterialTheme.appColors.primary
         assignment.isCompleted() -> MaterialTheme.appColors.successGreen
@@ -320,12 +323,12 @@ private fun AssignmentButton(assignment: Block, isSelected: Boolean, onClick: ()
         else -> MaterialTheme.appColors.textDark
     }
     val icon = when {
-        assignment.isCompleted() -> painterResource(id = coreR.drawable.ic_core_check)
+        hasFullScore -> painterResource(id = coreR.drawable.ic_core_check)
         isDuePast -> painterResource(id = coreR.drawable.ic_core_watch_later)
         else -> null
     }
     val iconDescription = when {
-        assignment.isCompleted() -> stringResource(R.string.course_accessibility_assignment_completed)
+        hasFullScore -> stringResource(R.string.course_accessibility_assignment_completed)
         isDuePast -> stringResource(R.string.course_accessibility_assignment_completed)
         else -> null
     }
@@ -334,7 +337,7 @@ private fun AssignmentButton(assignment: Block, isSelected: Boolean, onClick: ()
         else -> 1.dp
     }
     val cardBackground = when {
-        assignment.isCompleted() -> MaterialTheme.appColors.successGreen.copy(
+        hasFullScore -> MaterialTheme.appColors.successGreen.copy(
             ASSIGNMENT_BUTTON_CARD_BACKGROUND_ALPHA
         )
 

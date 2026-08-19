@@ -79,7 +79,12 @@ class HtmlUnitViewModel(
 
     fun notifyCompletionSet() {
         viewModelScope.launch {
-            notifier.send(CourseCompletionSet())
+            try {
+                courseInteractor.markBlockCompletion(courseId, blockId)
+                notifier.send(CourseCompletionSet(courseId, blockId))
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 

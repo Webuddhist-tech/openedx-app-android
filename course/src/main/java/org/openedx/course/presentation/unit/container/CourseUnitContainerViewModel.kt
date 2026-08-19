@@ -18,6 +18,7 @@ import org.openedx.core.extension.safeDivBy
 import org.openedx.core.module.db.DownloadModel
 import org.openedx.core.module.db.DownloadedState
 import org.openedx.core.system.connection.NetworkConnection
+import org.openedx.core.system.notifier.CourseCompletionSet
 import org.openedx.core.system.notifier.CourseNotifier
 import org.openedx.core.system.notifier.CourseSectionChanged
 import org.openedx.core.system.notifier.CourseStructureUpdated
@@ -243,12 +244,17 @@ class CourseUnitContainerViewModel(
 
         viewModelScope.launch {
             notifier.notifier.collect { event ->
-                if (event is CourseStructureUpdated) {
-                    if (event.courseId != courseId) return@collect
-                    loadBlocks(currentComponentId)
-                    val blockId = blocks[currentVerticalIndex].id
-                    _subSectionUnitBlocks.value =
-                        getSubSectionUnitBlocks(blocks, getSubSectionId(blockId))
+                when (event) {
+                    is CourseCompletionSet -> {
+                        if (event.courseId == courseId) markBlockCompleted(event.blockId)
+                    }
+                    is CourseStructureUpdated -> {
+                        if (event.courseId != courseId) return@collect
+                        loadBlocks(currentComponentId)
+                        val blockId = blocks[currentVerticalIndex].id
+                        _subSectionUnitBlocks.value =
+                            getSubSectionUnitBlocks(blocks, getSubSectionId(blockId))
+                    }
                 }
             }
         }
@@ -302,15 +308,18 @@ class CourseUnitContainerViewModel(
                         blocks.firstOrNull { descendant == it.id }
                     }
 
-                    // The OpenEdX API flattens library_content's children into the parent
-                    // vertical's descendants list but returns the library_content block itself
-                    // with an empty descendants field. Since the library_content WebView
-                    // already renders all its problems, remove the duplicate problem pages.
+                    // Library children may be flattened beside the wrapper or nested under it.
                     val hasLibraryContent = rawDescendants.any { it.isLibraryContentBlock }
                     _descendantsBlocks.value = if (hasLibraryContent) {
-                        // Show each library problem as its own page; drop the wrapper block
-                        // whose WebView would show all questions on a single page.
-                        rawDescendants.filter { !it.isLibraryContentBlock }
+                        val nonLibraryDescendants = rawDescendants.filter {
+                            !it.isLibraryContentBlock
+                        }
+                        nonLibraryDescendants.ifEmpty {
+                            rawDescendants
+                                .filter { it.isLibraryContentBlock }
+                                .flatMap { it.descendants }
+                                .mapNotNull { childId -> blocks.firstOrNull { it.id == childId } }
+                        }
                     } else {
                         // Generic case: filter blocks that are declared children of another
                         // block in the same list (handles other nested xBlock containers).
@@ -347,6 +356,17 @@ class CourseUnitContainerViewModel(
 
     private fun getSubSectionId(blockId: String): String {
         return blocks.firstOrNull { it.descendants.contains(blockId) }?.id ?: ""
+    }
+
+    private fun markBlockCompleted(blockId: String) {
+        val blockIndex = blocks.indexOfFirst { it.id == blockId }
+        if (blockIndex == -1) return
+        val completedBlock = blocks[blockIndex].copy(completion = 1.0)
+        blocks[blockIndex] = completedBlock
+        _descendantsBlocks.value = _descendantsBlocks.value.map {
+            if (it.id == blockId) completedBlock else it
+        }
+        if (_currentBlock.value?.id == blockId) _currentBlock.value = completedBlock
     }
 
     private fun getSubSectionUnitBlocks(blocks: List<Block>, id: String): List<Block> {

@@ -61,6 +61,7 @@ android {
 dependencies {
     implementation project(path: ':core')
     implementation project(path: ':discussion')
+    implementation "androidx.webkit:webkit:$webkit_version"
     implementation "com.pierfrancescosoffritti.androidyoutubeplayer:core:$youtubeplayer_version"
     implementation "com.pierfrancescosoffritti.androidyoutubeplayer:custom-ui:$youtubeplayer_version"
 

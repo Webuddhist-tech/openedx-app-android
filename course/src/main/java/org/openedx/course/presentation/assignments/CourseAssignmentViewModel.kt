@@ -36,9 +36,13 @@ class CourseAssignmentViewModel(
         collectData()
     }
 
-    private fun collectData() {
+    private fun collectData(forceRefresh: Boolean = false) {
         viewModelScope.launch {
-            val courseProgressFlow = interactor.getCourseProgress(courseId, false, true)
+            val courseProgressFlow = interactor.getCourseProgress(
+                courseId,
+                isRefresh = forceRefresh,
+                getOnlyCacheIfExist = !forceRefresh
+            )
             val courseStructureFlow = interactor.getCourseStructureFlow(courseId, false)
 
             combine(
@@ -64,8 +68,28 @@ class CourseAssignmentViewModel(
         courseStructure: CourseStructure,
         courseProgress: CourseProgress
     ) {
+        val scoresByBlock = courseProgress.sectionScores
+            .flatMap { it.subsections }
+            .associateBy { it.blockKey }
+        val blocksById = courseStructure.blockData.associateBy { it.id }
         val assignments = courseStructure.blockData
             .filter { !it.assignmentProgress?.assignmentType.isNullOrEmpty() }
+            .map { assignment ->
+                val score = scoresByBlock[assignment.id] ?: scoresByBlock[assignment.blockId]
+                val assignmentProgress = assignment.assignmentProgress ?: return@map assignment
+                val libraryCompletion =
+                    calculateLibraryAssignmentCompletion(assignment, blocksById)
+                assignment.copy(
+                    completion = libraryCompletion?.let { maxOf(assignment.completion, it) }
+                        ?: assignment.completion,
+                    assignmentProgress = assignmentProgress.copy(
+                        numPointsEarned = score?.numPointsEarned
+                            ?: assignmentProgress.numPointsEarned,
+                        numPointsPossible = score?.numPointsPossible
+                            ?: assignmentProgress.numPointsPossible
+                    )
+                )
+            }
         if (assignments.isEmpty()) {
             _uiState.value = CourseAssignmentUIState.Empty
         } else {
@@ -97,7 +121,9 @@ class CourseAssignmentViewModel(
         viewModelScope.launch {
             courseNotifier.notifier.collect { event ->
                 when (event) {
-                    is CourseStructureUpdated -> collectData()
+                    is CourseStructureUpdated -> {
+                        if (event.courseId == courseId) collectData(forceRefresh = true)
+                    }
                 }
             }
         }
@@ -134,5 +160,38 @@ class CourseAssignmentViewModel(
 
     private fun findChapterForAssignment(assignmentId: String, blocks: List<Block>): Block? {
         return blocks.firstOrNull { it.descendants.contains(assignmentId) }
+    }
+}
+
+internal fun calculateLibraryAssignmentCompletion(
+    assignment: Block,
+    blocksById: Map<String, Block>
+): Double? {
+    fun calculate(block: Block, visited: Set<String>): Pair<Double, Boolean> {
+        if (block.id in visited) return block.completion to block.isLibraryContentBlock
+
+        val rawChildren = block.descendants.mapNotNull(blocksById::get)
+        val hasDirectLibrary = rawChildren.any { it.isLibraryContentBlock }
+        val nonLibraryChildren = rawChildren.filter { !it.isLibraryContentBlock }
+        val children = when {
+            !hasDirectLibrary -> rawChildren
+            nonLibraryChildren.isNotEmpty() -> nonLibraryChildren
+            else -> rawChildren
+                .filter { it.isLibraryContentBlock }
+                .flatMap { library -> library.descendants.mapNotNull(blocksById::get) }
+        }
+        val childCompletions = children.map { calculate(it, visited + block.id) }
+        val containsLibrary = block.isLibraryContentBlock || hasDirectLibrary ||
+                childCompletions.any { it.second }
+
+        return if (containsLibrary && childCompletions.isNotEmpty()) {
+            childCompletions.map { it.first }.average() to true
+        } else {
+            block.completion to containsLibrary
+        }
+    }
+
+    return calculate(assignment, emptySet()).let { (completion, containsLibrary) ->
+        completion.takeIf { containsLibrary }
     }
 }

@@ -1,3 +1,6 @@
 package org.openedx.core.system.notifier
 
-class CourseCompletionSet : CourseEvent
+data class CourseCompletionSet(
+    val courseId: String = "",
+    val blockId: String = ""
+) : CourseEvent

@@ -397,6 +397,12 @@ class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_conta
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.descendantsBlocks.collect { blocks ->
                 if (blocks.isNotEmpty() && ::adapter.isInitialized) {
+                    val completionOnlyChange = adapter.blocks.size == blocks.size &&
+                            adapter.blocks.zip(blocks).all { (old, new) ->
+                                old.copy(completion = new.completion) == new
+                            }
+                    if (completionOnlyChange) return@collect
+
                     val wasShowingLockedContent = adapter.itemCount == 1 &&
                             adapter.getBlock(0).let { block ->
                                 block.gatedContent?.gated == true ||

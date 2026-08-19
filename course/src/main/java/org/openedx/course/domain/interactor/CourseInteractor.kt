@@ -139,6 +139,9 @@ class CourseInteractor(
     suspend fun submitOfflineXBlockProgress(blockId: String, courseId: String) =
         repository.submitOfflineXBlockProgress(blockId, courseId)
 
+    suspend fun markBlockCompletion(courseId: String, blockId: String) =
+        repository.markBlocksCompletion(courseId, listOf(blockId))
+
     fun getCourseProgress(courseId: String, isRefresh: Boolean, getOnlyCacheIfExist: Boolean) =
         repository.getCourseProgress(courseId, isRefresh, getOnlyCacheIfExist)
 
