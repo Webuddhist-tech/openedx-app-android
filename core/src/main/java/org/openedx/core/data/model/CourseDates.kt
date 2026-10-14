@@ -5,8 +5,7 @@ import org.openedx.core.domain.model.CourseDatesBannerInfo
 import org.openedx.core.domain.model.CourseDatesResult
 import org.openedx.core.domain.model.DatesSection
 import org.openedx.core.utils.TimeUtils
-import org.openedx.core.utils.addDays
-import org.openedx.core.utils.clearTime
+import org.openedx.core.utils.classifyCalendarDay
 import org.openedx.core.utils.isToday
 import java.util.Date
 import org.openedx.core.domain.model.CourseDateBlock as DomainCourseDateBlock
@@ -51,22 +50,17 @@ data class CourseDates(
         courseDatesResponse[DatesSection.TODAY] =
             datesList.filter { it.date.isToday() }.also { datesList.removeAll(it) }
 
-        // Update the date for upcoming comparison without time
-        currentDate.clearTime()
-
-        // for current week except today
+        // Weeks run Monday-Sunday. Today has already been removed above.
         courseDatesResponse[DatesSection.THIS_WEEK] = datesList.filter {
-            it.date.after(currentDate) && it.date.before(currentDate.addDays(days = 8))
+            classifyCalendarDay(it.date, currentDate) == DatesSection.THIS_WEEK
         }.also { datesList.removeAll(it) }
 
-        // for coming week
         courseDatesResponse[DatesSection.NEXT_WEEK] = datesList.filter {
-            it.date.after(currentDate.addDays(days = 7)) && it.date.before(currentDate.addDays(days = 15))
+            classifyCalendarDay(it.date, currentDate) == DatesSection.NEXT_WEEK
         }.also { datesList.removeAll(it) }
 
-        // for upcoming
         courseDatesResponse[DatesSection.UPCOMING] = datesList.filter {
-            it.date.after(currentDate.addDays(days = 14))
+            classifyCalendarDay(it.date, currentDate) == DatesSection.UPCOMING
         }.also { datesList.removeAll(it) }
 
         return courseDatesResponse

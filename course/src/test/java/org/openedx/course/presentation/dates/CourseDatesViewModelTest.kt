@@ -29,11 +29,16 @@ import org.openedx.core.R
 import org.openedx.core.config.Config
 import org.openedx.core.data.storage.CorePreferences
 import org.openedx.core.domain.interactor.CalendarInteractor
+import kotlinx.coroutines.flow.MutableSharedFlow
 import org.openedx.core.domain.model.CourseCalendarState
 import org.openedx.core.domain.model.CourseDatesResult
+import org.openedx.core.domain.model.DatesSection
+import org.openedx.core.domain.model.SectionSchedule
 import org.openedx.core.system.notifier.CalendarSyncEvent.CreateCalendarSyncEvent
+import org.openedx.core.system.notifier.CourseEvent
 import org.openedx.core.system.notifier.CourseLoading
 import org.openedx.core.system.notifier.CourseNotifier
+import org.openedx.core.system.notifier.RefreshDates
 import org.openedx.core.system.notifier.calendar.CalendarEvent
 import org.openedx.core.system.notifier.calendar.CalendarNotifier
 import org.openedx.core.system.notifier.calendar.CalendarSynced
@@ -84,6 +89,7 @@ class CourseDatesViewModelTest {
         every { calendarNotifier.notifier } returns flowOf(CalendarSynced)
         coEvery { calendarNotifier.send(any<CalendarEvent>()) } returns Unit
         every { preferencesManager.isRelativeDatesEnabled } returns true
+        coEvery { interactor.getCourseSchedule(any(), any()) } returns emptyList()
         coEvery { calendarInteractor.getCourseCalendarStateByIdFromCache(any()) } returns CourseCalendarState(
             0,
             "",
@@ -223,4 +229,88 @@ class CourseDatesViewModelTest {
         assert(message.await()?.message.isNullOrEmpty())
         assert(viewModel.uiState.value is CourseDatesUIState.Error)
     }
+
+    @Test
+    fun `schedule failure still shows course dates`() = runTest(UnconfinedTestDispatcher()) {
+        coEvery { interactor.getCourseDates(any(), any()) } returns CourseMocks.courseDatesResultWithData
+        coEvery { interactor.getCourseSchedule(any(), any()) } throws UnknownHostException()
+
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+
+        assert(viewModel.uiState.value is CourseDatesUIState.CourseDates)
+    }
+
+    @Test
+    fun `sessions are grouped without replacing assignments`() = runTest(UnconfinedTestDispatcher()) {
+        val session = sampleSession(startDate = "2026-10-19")
+        coEvery { interactor.getCourseDates(any(), any()) } returns CourseMocks.courseDatesResultWithData
+        coEvery { interactor.getCourseSchedule(any(), any()) } returns listOf(session)
+
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CourseDatesUIState.CourseDates
+        assert(state.courseDatesResult.datesSection.isNotEmpty())
+        assert(state.scheduleSections.values.flatten().contains(session))
+        assert(state.scheduleSections[DatesSection.COMPLETED].isNullOrEmpty())
+    }
+
+    @Test
+    fun `empty sessions add nothing to the dates screen`() = runTest(UnconfinedTestDispatcher()) {
+        coEvery { interactor.getCourseDates(any(), any()) } returns CourseMocks.courseDatesResultWithData
+        coEvery { interactor.getCourseSchedule(any(), any()) } returns emptyList()
+
+        val viewModel = newViewModel()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value as CourseDatesUIState.CourseDates
+        assert(state.scheduleSections.isEmpty())
+    }
+
+    @Test
+    fun `refresh loads dates and the schedule again`() = runTest(UnconfinedTestDispatcher()) {
+        val events = MutableSharedFlow<CourseEvent>(extraBufferCapacity = 1)
+        every { notifier.notifier } returns events
+        coEvery { interactor.getCourseStructure(any(), any()) } returns CoreMocks.mockCourseStructure
+        coEvery { interactor.getCourseDates(any(), any()) } returns CourseMocks.courseDatesResultWithData
+
+        newViewModel()
+        advanceUntilIdle()
+        events.tryEmit(RefreshDates)
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { interactor.getCourseDates(any(), any()) }
+        coVerify(exactly = 2) { interactor.getCourseSchedule(any(), any()) }
+    }
+
+    private fun newViewModel() = CourseDatesViewModel(
+        "id",
+        "",
+        notifier,
+        interactor,
+        analytics,
+        config,
+        calendarInteractor,
+        calendarNotifier,
+        preferencesManager,
+        courseRouter,
+        calendarRouter,
+        resourceManager,
+    )
+
+    private fun sampleSession(startDate: String) = SectionSchedule(
+        sectionId = "block-v1:test",
+        title = "Morning session",
+        startDate = startDate,
+        endDate = startDate,
+        numDays = 1,
+        startTime = "08:30",
+        endTime = "11:30",
+        timezoneAbbr = "IST",
+        instructor = "Ada",
+        toolsRequired = "Zoom",
+        notes = "Bring a notebook",
+        contentAvailableFrom = null,
+    )
 }

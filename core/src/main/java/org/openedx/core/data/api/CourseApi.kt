@@ -10,6 +10,7 @@ import org.openedx.core.data.model.CourseDatesResponse
 import org.openedx.core.data.model.CourseEnrollmentDetails
 import org.openedx.core.data.model.CourseEnrollments
 import org.openedx.core.data.model.CourseProgressResponse
+import org.openedx.core.data.model.CourseScheduleResponse
 import org.openedx.core.data.model.CourseStructureModel
 import org.openedx.core.data.model.DownloadCoursePreview
 import org.openedx.core.data.model.EnrollmentStatus
@@ -68,6 +69,11 @@ interface CourseApi {
         @Query("allow_not_started_courses") allowNotStartedCourses: Boolean = true,
         @Query("mobile") mobile: Boolean = true,
     ): CourseDates
+
+    @GET("/api/course-schedule/v1/{course_id}/")
+    suspend fun getSectionSchedule(
+        @Path("course_id") courseId: String,
+    ): CourseScheduleResponse
 
     @POST("/api/course_experience/v1/reset_course_deadlines")
     suspend fun resetCourseDates(@Body courseBody: Map<String, String>): ResetCourseDates

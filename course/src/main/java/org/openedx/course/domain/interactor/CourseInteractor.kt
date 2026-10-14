@@ -114,6 +114,9 @@ class CourseInteractor(
     suspend fun getCourseDates(courseId: String, forceRefresh: Boolean = false) =
         repository.getCourseDates(courseId, forceRefresh)
 
+    suspend fun getCourseSchedule(courseId: String, forceRefresh: Boolean = false) =
+        repository.getCourseSchedule(courseId, forceRefresh)
+
     suspend fun resetCourseDates(courseId: String) = repository.resetCourseDates(courseId)
 
     suspend fun getDatesBannerInfo(courseId: String) = repository.getDatesBannerInfo(courseId)
