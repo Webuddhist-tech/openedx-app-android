@@ -22,6 +22,9 @@ enum class BlockType {
     LTI_CONSUMER {
         override fun isContainer() = false
     },
+    MULTILINGUAL_TEXT {
+        override fun isContainer() = false
+    },
     OPENASSESSMENT {
         override fun isContainer() = false
     },
