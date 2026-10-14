@@ -102,6 +102,7 @@ class CourseUnitContainerAdapter(
 
     private fun isSupportedHtmlBlock(block: Block): Boolean {
         return block.isHTMLBlock ||
+                block.isMultilingualTextBlock ||
                 block.isProblemBlock ||
                 block.isOpenAssessmentBlock ||
                 block.isDragAndDropBlock ||

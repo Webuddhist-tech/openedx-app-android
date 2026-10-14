@@ -133,6 +133,7 @@ data class Block(
     val isLTIConsumerBlock get() = type == BlockType.LTI_CONSUMER
     val isSurveyBlock get() = type == BlockType.SURVEY
     val isLibraryContentBlock get() = type == BlockType.LIBRARY_CONTENT
+    val isMultilingualTextBlock get() = type == BlockType.MULTILINGUAL_TEXT
 }
 
 @Parcelize
