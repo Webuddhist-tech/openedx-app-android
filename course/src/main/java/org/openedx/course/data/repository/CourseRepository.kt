@@ -18,6 +18,7 @@ import org.openedx.core.domain.model.CourseDatesResult
 import org.openedx.core.domain.model.CourseEnrollmentDetails
 import org.openedx.core.domain.model.CourseProgress
 import org.openedx.core.domain.model.CourseStructure
+import org.openedx.core.domain.model.SectionSchedule
 import org.openedx.core.exception.NoCachedDataException
 import org.openedx.core.module.db.DownloadDao
 import org.openedx.core.system.connection.NetworkConnection
@@ -67,6 +68,10 @@ class CourseRepository(
         fetch = { courseId -> api.getCourseDates(courseId).getCourseDatesResult() }
     )
 
+    private val scheduleCache = CoalescingCache<String, List<SectionSchedule>>(
+        fetch = { courseId -> api.getSectionSchedule(courseId).toSchedules() }
+    )
+
     private val progressCache = CoalescingCache<String, CourseProgress>(
         fetch = { courseId ->
             val response = api.getCourseProgress(courseId)
@@ -91,6 +96,7 @@ class CourseRepository(
         structureCache.clear()
         statusCache.clear()
         datesCache.clear()
+        scheduleCache.clear()
         progressCache.clear()
         enrollmentCache.clear()
         needsRefresh.clear()
@@ -195,6 +201,14 @@ class CourseRepository(
             !forceRefresh && datesCache.getCached(courseId) != null -> datesCache.getCached(courseId)!!
             networkConnection.isOnline() -> datesCache.getOrFetch(courseId, forceRefresh = true)
             else -> datesCache.getCached(courseId) ?: throw NoCachedDataException()
+        }
+    }
+
+    suspend fun getCourseSchedule(courseId: String, forceRefresh: Boolean = false): List<SectionSchedule> {
+        return when {
+            !forceRefresh && scheduleCache.getCached(courseId) != null -> scheduleCache.getCached(courseId)!!
+            networkConnection.isOnline() -> scheduleCache.getOrFetch(courseId, forceRefresh = true)
+            else -> scheduleCache.getCached(courseId) ?: emptyList()
         }
     }
 

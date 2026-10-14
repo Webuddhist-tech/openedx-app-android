@@ -64,6 +64,7 @@ import androidx.fragment.app.FragmentManager
 import org.openedx.core.NoContentScreenType
 import org.openedx.core.domain.model.CourseDateBlock
 import org.openedx.core.domain.model.DatesSection
+import org.openedx.core.domain.model.SectionSchedule
 import org.openedx.core.presentation.CoreAnalyticsScreen
 import org.openedx.core.presentation.dates.CourseDateBlockSection
 import org.openedx.core.presentation.dialog.alert.ActionDialogFragment
@@ -243,6 +244,7 @@ private fun CourseDatesUI(
                             ) {
                                 val courseBanner = uiState.courseDatesResult.courseBanner
                                 val datesSection = uiState.courseDatesResult.datesSection
+                                val scheduleSections = uiState.scheduleSections
 
                                 if (courseBanner.isBannerAvailableForUserType(isSelfPaced)) {
                                     item {
@@ -319,15 +321,23 @@ private fun CourseDatesUI(
                                     }
                                 }
 
-                                // Handle other sections
-                                val sectionsKey =
-                                    datesSection.keys.minus(DatesSection.COMPLETED).toList()
-                                sectionsKey.forEach { sectionKey ->
-                                    datesSection[sectionKey]?.isNotEmptyThenLet { section ->
+                                // Handle other sections. A section shows when it has
+                                // assignments, taught sessions, or both.
+                                listOf(
+                                    DatesSection.PAST_DUE,
+                                    DatesSection.TODAY,
+                                    DatesSection.THIS_WEEK,
+                                    DatesSection.NEXT_WEEK,
+                                    DatesSection.UPCOMING,
+                                ).forEach { sectionKey ->
+                                    val blocks = datesSection[sectionKey].orEmpty()
+                                    val sessions = scheduleSections[sectionKey].orEmpty()
+                                    if (blocks.isNotEmpty() || sessions.isNotEmpty()) {
                                         item {
                                             CourseDateBlockSection(
                                                 sectionKey = sectionKey,
-                                                sectionDates = section,
+                                                sectionDates = blocks,
+                                                sessions = sessions,
                                                 onItemClick = onItemClick,
                                                 useRelativeDates = useRelativeDates
                                             )
@@ -450,6 +460,7 @@ private fun CourseDateBlockSection(
     sectionKey: DatesSection = DatesSection.NONE,
     useRelativeDates: Boolean,
     sectionDates: List<CourseDateBlock>,
+    sessions: List<SectionSchedule> = emptyList(),
     onItemClick: (CourseDateBlock) -> Unit,
 ) {
     Column(modifier = Modifier.padding(start = 8.dp)) {
@@ -471,11 +482,21 @@ private fun CourseDateBlockSection(
             if (sectionKey != DatesSection.COMPLETED) {
                 DateBullet(section = sectionKey)
             }
-            DateBlock(
-                dateBlocks = sectionDates,
-                onItemClick = onItemClick,
-                useRelativeDates = useRelativeDates
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                if (sectionDates.isNotEmpty()) {
+                    DateBlock(
+                        dateBlocks = sectionDates,
+                        onItemClick = onItemClick,
+                        useRelativeDates = useRelativeDates
+                    )
+                }
+                if (sessions.isNotEmpty()) {
+                    SectionScheduleList(
+                        sessions = sessions,
+                        modifier = Modifier.padding(start = 8.dp, end = 8.dp),
+                    )
+                }
+            }
         }
     }
 }

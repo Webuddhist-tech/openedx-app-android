@@ -118,4 +118,9 @@
     <!-- Caught Up Messages -->
     <string name="course_videos_caught_up">You\'re all caught up on videos!</string>
     <string name="course_assignments_caught_up">You\'re all caught up on assignments!</string>
+
+    <!-- Section schedule -->
+    <string name="course_schedule_instructor">Instructor: %1$s</string>
+    <string name="course_schedule_tools_required">Tools required: %1$s</string>
+    <string name="course_schedule_content_available">Content available from %1$s</string>
 </resources>

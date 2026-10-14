@@ -15,6 +15,7 @@ import org.openedx.core.domain.model.Block
 import org.openedx.core.domain.model.CourseBannerType
 import org.openedx.core.domain.model.CourseDateBlock
 import org.openedx.core.domain.model.CourseStructure
+import org.openedx.core.domain.model.SectionSchedule
 import org.openedx.core.extension.getSequentialBlocks
 import org.openedx.core.extension.getVerticalBlocks
 import org.openedx.core.presentation.settings.calendarsync.CalendarSyncDialogType
@@ -25,6 +26,7 @@ import org.openedx.core.system.notifier.CourseLoading
 import org.openedx.core.system.notifier.CourseNotifier
 import org.openedx.core.system.notifier.RefreshDates
 import org.openedx.core.system.notifier.calendar.CalendarNotifier
+import org.openedx.core.utils.groupSectionSchedules
 import org.openedx.course.domain.interactor.CourseInteractor
 import org.openedx.course.presentation.CourseAnalytics
 import org.openedx.course.presentation.CourseAnalyticsEvent
@@ -99,12 +101,17 @@ class CourseDatesViewModel(
                 } else {
                     interactor.getCourseDates(courseId = courseId)
                 }
-                if (datesResponse.datesSection.isEmpty()) {
+                val sessions = loadSectionSchedules(forceRefresh)
+                if (datesResponse.datesSection.isEmpty() && sessions.isEmpty()) {
                     _uiState.value = CourseDatesUIState.Error
                 } else {
                     val courseDates = datesResponse.datesSection.values.flatten()
                     val calendarState = getCalendarState(courseDates)
-                    _uiState.value = CourseDatesUIState.CourseDates(datesResponse, calendarState)
+                    _uiState.value = CourseDatesUIState.CourseDates(
+                        courseDatesResult = datesResponse,
+                        calendarSyncState = calendarState,
+                        scheduleSections = groupSectionSchedules(sessions),
+                    )
                     courseBannerType = datesResponse.courseBanner.bannerType
                     checkIfCalendarOutOfDate()
                 }
@@ -118,6 +125,14 @@ class CourseDatesViewModel(
             } finally {
                 courseNotifier.send(CourseLoading(false))
             }
+        }
+    }
+
+    private suspend fun loadSectionSchedules(forceRefresh: Boolean): List<SectionSchedule> {
+        return try {
+            interactor.getCourseSchedule(courseId = courseId, forceRefresh = forceRefresh)
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
