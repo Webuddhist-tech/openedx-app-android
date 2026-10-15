@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="background">#FFFFFF</color>
+    <color name="unit_canvas">#F2F4F7</color>
     <color name="primary">#FC8044</color>
     <color name="splash">#FC8044</color>
     <color name="checked_tab_item">#FC8044</color>

@@ -363,10 +363,38 @@ class CourseUnitContainerViewModel(
         if (blockIndex == -1) return
         val completedBlock = blocks[blockIndex].copy(completion = 1.0)
         blocks[blockIndex] = completedBlock
+        markCompletedAncestors(blockId)
         _descendantsBlocks.value = _descendantsBlocks.value.map {
             if (it.id == blockId) completedBlock else it
         }
         if (_currentBlock.value?.id == blockId) _currentBlock.value = completedBlock
+        refreshSubSectionUnitBlocks()
+    }
+
+    private fun markCompletedAncestors(blockId: String) {
+        var childId = blockId
+        while (true) {
+            val parentIndex = blocks.indexOfFirst { it.descendants.contains(childId) }
+            if (parentIndex == -1) return
+            val parent = blocks[parentIndex]
+            if (parent.isCompleted() || !areChildrenCompleted(parent)) return
+            blocks[parentIndex] = parent.copy(completion = 1.0)
+            childId = parent.id
+        }
+    }
+
+    private fun areChildrenCompleted(parent: Block): Boolean {
+        val children = parent.descendants
+            .mapNotNull { childId -> blocks.firstOrNull { it.id == childId } }
+            .filterNot { it.isDiscussionBlock }
+        return children.isNotEmpty() && children.all { it.isCompleted() }
+    }
+
+    private fun refreshSubSectionUnitBlocks() {
+        val verticalId = blocks.getOrNull(currentVerticalIndex)?.id ?: return
+        val subSectionId = getSubSectionId(verticalId)
+        if (subSectionId.isEmpty()) return
+        _subSectionUnitBlocks.value = getSubSectionUnitBlocks(blocks, subSectionId)
     }
 
     private fun getSubSectionUnitBlocks(blocks: List<Block>, id: String): List<Block> {

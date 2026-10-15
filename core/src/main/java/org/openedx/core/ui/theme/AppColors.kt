@@ -82,6 +82,8 @@ data class AppColors(
     val gradeProgressBarBorder: Color,
     val gradeProgressBarBackground: Color,
     val assignmentCardBorder: Color,
+    val unitCanvas: Color,
+    val unitSurface: Color,
 ) {
     // Material 3 ColorScheme accessors
     val primary: Color get() = material3.primary

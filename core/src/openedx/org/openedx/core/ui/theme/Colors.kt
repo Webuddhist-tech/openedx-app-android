@@ -77,6 +77,8 @@ val light_progress_bar_background_color = Color(0xFFCCD4E0)
 val light_grade_progress_bar_color = Color.Black
 val light_grade_progress_bar_background = Color(0xFFCCD4E0)
 val light_assignment_card_border = Color(0xFFCCD4E0)
+val light_unit_canvas = Color(0xFFF2F4F7)
+val light_unit_surface = Color(0xFFFFFFFF)
 
 val dark_primary = Color(0xFFFC8044)   // primary color
 val dark_primary_variant = dark_primary
@@ -153,3 +155,5 @@ val dark_progress_bar_background_color = Color(0xFF8E9BAE)
 val dark_grade_progress_bar_color = Color.Transparent
 val dark_grade_progress_bar_background = Color(0xFF8E9BAE)
 val dark_assignment_card_border = Color(0xFF8E9BAE)
+val dark_unit_canvas = Color(0xFF10161F)
+val dark_unit_surface = Color(0xFF18202E)

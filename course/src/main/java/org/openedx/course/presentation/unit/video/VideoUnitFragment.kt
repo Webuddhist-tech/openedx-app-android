@@ -34,8 +34,9 @@ import org.openedx.course.databinding.FragmentVideoUnitBinding
 import org.openedx.course.presentation.CourseAnalyticsEvent
 import org.openedx.course.presentation.CourseAnalyticsKey
 import org.openedx.course.presentation.CourseRouter
+import org.openedx.core.BlockType
+import org.openedx.course.presentation.ui.UnitBlockHeader
 import org.openedx.course.presentation.ui.VideoSubtitles
-import org.openedx.course.presentation.ui.VideoTitle
 import org.openedx.foundation.extension.computeWindowSizeClasses
 import org.openedx.foundation.extension.dpToPixel
 import org.openedx.foundation.extension.objectToString
@@ -93,7 +94,14 @@ class VideoUnitFragment : Fragment(R.layout.fragment_video_unit) {
 
         binding.cvVideoTitle?.setContent {
             OpenEdXTheme {
-                VideoTitle(text = requireArguments().getString(ARG_TITLE) ?: "")
+                if (requireArguments().getBoolean(ARG_SHOW_HEADER, false)) {
+                    UnitBlockHeader(
+                        title = requireArguments().getString(ARG_TITLE) ?: "",
+                        blockType = BlockType.VIDEO,
+                        index = requireArguments().getInt(ARG_BLOCK_INDEX, 0),
+                        count = requireArguments().getInt(ARG_BLOCK_COUNT, 1)
+                    )
+                }
             }
         }
 
@@ -313,6 +321,9 @@ class VideoUnitFragment : Fragment(R.layout.fragment_video_unit) {
         private const val ARG_COURSE_ID = "courseId"
         private const val ARG_TITLE = "title"
         private const val ARG_DOWNLOADED = "isDownloaded"
+        private const val ARG_BLOCK_INDEX = "blockIndex"
+        private const val ARG_BLOCK_COUNT = "blockCount"
+        private const val ARG_SHOW_HEADER = "showHeader"
 
         private const val PLAYER_VIEW_PADDING_DP = 32
         private const val MIN_PLAYER_HEIGHT_DP = 194
@@ -328,6 +339,9 @@ class VideoUnitFragment : Fragment(R.layout.fragment_video_unit) {
             transcriptsUrl: Map<String, String>,
             title: String,
             isDownloaded: Boolean,
+            blockIndex: Int = 0,
+            blockCount: Int = 1,
+            showHeader: Boolean = false,
         ): VideoUnitFragment {
             val fragment = VideoUnitFragment()
             fragment.arguments = bundleOf(
@@ -336,7 +350,10 @@ class VideoUnitFragment : Fragment(R.layout.fragment_video_unit) {
                 ARG_VIDEO_URL to videoUrl,
                 ARG_TRANSCRIPT_URL to objectToString(transcriptsUrl),
                 ARG_TITLE to title,
-                ARG_DOWNLOADED to isDownloaded
+                ARG_DOWNLOADED to isDownloaded,
+                ARG_BLOCK_INDEX to blockIndex,
+                ARG_BLOCK_COUNT to blockCount,
+                ARG_SHOW_HEADER to showHeader,
             )
             return fragment
         }
