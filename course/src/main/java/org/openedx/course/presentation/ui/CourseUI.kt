@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -36,16 +37,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -70,6 +74,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -79,6 +84,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -1256,91 +1262,102 @@ fun SubSectionUnitsList(
     selectedUnitIndex: Int = 0,
     onUnitClick: (index: Int, unit: Block) -> Unit,
 ) {
+    val shape = RoundedCornerShape(16.dp)
+    val accent = MaterialTheme.appColors.primary
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight(align = Alignment.Top)
-            .displayCutoutForLandscape(),
-        border = BorderStroke(1.dp, MaterialTheme.appColors.cardViewBorder)
+            .heightIn(max = 400.dp)
+            .displayCutoutForLandscape()
+            .shadow(
+                elevation = 8.dp,
+                shape = shape,
+                ambientColor = Color(0xFF19212F).copy(alpha = if (MaterialTheme.appColors.isLight) 0.15f else 0.4f),
+                spotColor = Color.Black.copy(alpha = if (MaterialTheme.appColors.isLight) 0.15f else 0.4f)
+            ),
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.appColors.unitSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, cardStroke(MaterialTheme.appColors.cardViewBorder))
     ) {
-        LazyColumn(Modifier.fillMaxWidth()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(6.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             itemsIndexed(unitBlocks) { index, unit ->
+                val selected = index == selectedUnitIndex
                 Column(
                     modifier = Modifier
-                        .background(
-                            if (index == selectedUnitIndex) {
-                                MaterialTheme.appColors.surface
-                            } else {
-                                MaterialTheme.appColors.background
-                            }
-                        )
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selected) accent.copy(alpha = 0.12f) else Color.Transparent)
                         .clickable { onUnitClick(index, unit) }
+                        .semantics { this.selected = selected }
+                        .padding(horizontal = 12.dp)
+                        .defaultMinSize(minHeight = 48.dp),
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .alpha(if (unit.isCompleted()) 1f else 0f),
-                            painter = painterResource(id = coreR.drawable.core_ic_check),
-                            contentDescription = "done"
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        UnitCompletionMark(completed = unit.isCompleted())
                         Text(
                             modifier = Modifier
-                                .padding(start = 8.dp, end = 8.dp)
+                                .padding(horizontal = 12.dp)
                                 .weight(1f),
                             text = unit.displayName,
-                            color = MaterialTheme.appColors.textPrimary,
-                            style = MaterialTheme.appTypography.labelMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Start,
+                            color = MaterialTheme.appColors.textDark,
+                            style = if (selected) {
+                                MaterialTheme.appTypography.titleSmall
+                            } else {
+                                MaterialTheme.appTypography.bodyMedium
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Icon(
-                            modifier = Modifier
-                                .size(18.dp),
-                            painter = painterResource(
-                                id = getUnitBlockIcon(unit)
-                            ),
+                            modifier = Modifier.size(18.dp),
+                            painter = painterResource(id = getUnitBlockIcon(unit)),
                             contentDescription = null,
-                            tint = MaterialTheme.appColors.textPrimary
+                            tint = if (selected) accent else MaterialTheme.appColors.textFieldHint
                         )
                     }
                     if (unit.isGated()) {
-                        Row(
-                            modifier = Modifier
-                                .padding(horizontal = 8.dp)
-                                .padding(bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Image(
-                                modifier = Modifier
-                                    .size(16.dp),
-                                painter = painterResource(id = R.drawable.course_ic_gated),
-                                contentDescription = "gated"
-                            )
-                            Text(
-                                modifier = Modifier
-                                    .padding(start = 8.dp, end = 8.dp)
-                                    .weight(1f),
-                                text = stringResource(
-                                    id = R.string.course_gated_content_label
-                                ),
-                                color = MaterialTheme.appColors.textPrimaryVariant,
-                                style = MaterialTheme.appTypography.labelSmall,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.Start,
-                            )
-                        }
+                        Text(
+                            modifier = Modifier.padding(start = 34.dp, bottom = 8.dp),
+                            text = stringResource(id = R.string.course_gated_content_label),
+                            color = MaterialTheme.appColors.textPrimaryVariant,
+                            style = MaterialTheme.appTypography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
-                    HorizontalDivider()
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun UnitCompletionMark(completed: Boolean) {
+    if (completed) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .background(MaterialTheme.appColors.primary, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
+            )
+        }
+    } else {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .border(1.5.dp, MaterialTheme.appColors.cardViewBorder, CircleShape)
+        )
     }
 }
 

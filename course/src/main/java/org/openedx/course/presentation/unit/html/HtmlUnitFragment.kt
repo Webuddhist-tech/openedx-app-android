@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -22,15 +21,18 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -45,8 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.Dp
@@ -64,8 +66,11 @@ import org.openedx.core.extension.loadUrl
 import org.openedx.core.system.AppCookieManager
 import org.openedx.core.ui.FullScreenErrorView
 import org.openedx.core.ui.roundBorderWithoutBottom
+import org.openedx.core.BlockType
 import org.openedx.core.ui.theme.OpenEdXTheme
 import org.openedx.core.ui.theme.appColors
+import org.openedx.course.presentation.ui.UnitBlockHeader
+import org.openedx.course.presentation.ui.cardStroke
 import org.openedx.core.utils.EmailUtil
 import org.openedx.foundation.extension.applyDarkModeIfEnabled
 import org.openedx.foundation.extension.isEmailValid
@@ -117,6 +122,13 @@ class HtmlUnitFragment : Fragment() {
                 offlineUrl = offlineUrl,
                 fromDownloadedContent = fromDownloadedContent,
                 isFragmentAdded = isAdded,
+                blockTitle = requireArguments().getString(ARG_BLOCK_TITLE, ""),
+                blockType = runCatching {
+                    BlockType.valueOf(requireArguments().getString(ARG_BLOCK_TYPE, ""))
+                }.getOrDefault(BlockType.HTML),
+                blockIndex = requireArguments().getInt(ARG_BLOCK_INDEX, 0),
+                blockCount = requireArguments().getInt(ARG_BLOCK_COUNT, 1),
+                showUnitCard = requireArguments().getBoolean(ARG_SHOW_UNIT_CARD, false),
                 onShowFileChooser = ::openFileChooser,
                 onPrerequisiteLocked = { _, _ ->
                     // Fallback: if somehow HtmlUnitFragment loaded with gated content, navigate back
@@ -205,12 +217,22 @@ class HtmlUnitFragment : Fragment() {
         private const val ARG_BLOCK_URL = "blockUrl"
         private const val ARG_OFFLINE_URL = "offlineUrl"
         private const val ARG_LAST_MODIFIED = "lastModified"
+        private const val ARG_BLOCK_TITLE = "blockTitle"
+        private const val ARG_BLOCK_TYPE = "blockType"
+        private const val ARG_BLOCK_INDEX = "blockIndex"
+        private const val ARG_BLOCK_COUNT = "blockCount"
+        private const val ARG_SHOW_UNIT_CARD = "showUnitCard"
         fun newInstance(
             blockId: String,
             blockUrl: String,
             courseId: String,
             offlineUrl: String = "",
-            lastModified: String = ""
+            lastModified: String = "",
+            blockTitle: String = "",
+            blockType: String = BlockType.HTML.name,
+            blockIndex: Int = 0,
+            blockCount: Int = 1,
+            showUnitCard: Boolean = false,
         ): HtmlUnitFragment {
             val fragment = HtmlUnitFragment()
             fragment.arguments = bundleOf(
@@ -218,7 +240,12 @@ class HtmlUnitFragment : Fragment() {
                 ARG_BLOCK_URL to blockUrl,
                 ARG_OFFLINE_URL to offlineUrl,
                 ARG_LAST_MODIFIED to lastModified,
-                ARG_COURSE_ID to courseId
+                ARG_COURSE_ID to courseId,
+                ARG_BLOCK_TITLE to blockTitle,
+                ARG_BLOCK_TYPE to blockType,
+                ARG_BLOCK_INDEX to blockIndex,
+                ARG_BLOCK_COUNT to blockCount,
+                ARG_SHOW_UNIT_CARD to showUnitCard,
             )
             return fragment
         }
@@ -232,6 +259,11 @@ fun HtmlUnitView(
     offlineUrl: String,
     fromDownloadedContent: Boolean,
     isFragmentAdded: Boolean,
+    blockTitle: String = "",
+    blockType: BlockType = BlockType.HTML,
+    blockIndex: Int = 0,
+    blockCount: Int = 1,
+    showUnitCard: Boolean = false,
     onShowFileChooser: (ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams?) -> Boolean,
     onPrerequisiteLocked: (prereqId: String, prereqSectionName: String) -> Unit = { _, _ -> },
 ) {
@@ -266,16 +298,8 @@ fun HtmlUnitView(
         val injectJSList by viewModel.injectJSList.collectAsState()
         val uiState by viewModel.uiState.collectAsState()
 
-        val configuration = LocalConfiguration.current
-
-        val bottomPadding =
-            if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
-                72.dp
-            } else {
-                0.dp
-            }
-
-        val border = if (!isSystemInDarkTheme() && !viewModel.isCourseUnitProgressEnabled) {
+        val useLegacySheet = !showUnitCard
+        val border = if (useLegacySheet && !isSystemInDarkTheme() && !viewModel.isCourseUnitProgressEnabled) {
             Modifier.roundBorderWithoutBottom(
                 borderWidth = 2.dp,
                 cornerRadius = 30.dp
@@ -283,17 +307,17 @@ fun HtmlUnitView(
         } else {
             Modifier
         }
+        val pageColor = if (showUnitCard) {
+            MaterialTheme.appColors.unitSurface
+        } else {
+            MaterialTheme.appColors.background
+        }
 
-        Surface(
-            modifier = Modifier
-                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-            color = MaterialTheme.appColors.background
-        ) {
+        val pageContent: @Composable () -> Unit = {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = bottomPadding)
-                    .background(MaterialTheme.appColors.background)
+                    .background(pageColor)
                     .then(border),
                 contentAlignment = Alignment.TopCenter
             ) {
@@ -304,6 +328,7 @@ fun HtmlUnitView(
                             uiState = uiState,
                             windowSize = windowSize,
                             url = url,
+                            pageColor = pageColor.toArgb(),
                             cookieManager = viewModel.cookieManager,
                             apiHostURL = viewModel.apiHostURL,
                             isLoading = uiState is HtmlUnitUIState.Loading,
@@ -353,6 +378,46 @@ fun HtmlUnitView(
                 }
             }
         }
+        if (showUnitCard) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.appColors.unitCanvas)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.appColors.unitSurface,
+                    border = BorderStroke(1.dp, cardStroke(MaterialTheme.appColors.cardViewBorder)),
+                    shadowElevation = 1.dp
+                ) {
+                    Column {
+                        UnitBlockHeader(
+                            title = blockTitle,
+                            blockType = blockType,
+                            index = blockIndex,
+                            count = blockCount
+                        )
+                        HorizontalDivider(color = cardStroke(MaterialTheme.appColors.cardViewBorder))
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(bottom = 24.dp)
+                        ) {
+                            pageContent()
+                        }
+                    }
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+                color = MaterialTheme.appColors.background
+            ) {
+                pageContent()
+            }
+        }
     }
 }
 
@@ -362,6 +427,7 @@ private fun HTMLContentView(
     uiState: HtmlUnitUIState,
     windowSize: WindowSize,
     url: String,
+    pageColor: Int,
     cookieManager: AppCookieManager,
     apiHostURL: String,
     isLoading: Boolean,
@@ -399,6 +465,7 @@ private fun HTMLContentView(
             .background(MaterialTheme.appColors.primary),
         factory = {
             WebView(context).apply {
+                setBackgroundColor(pageColor)
                 addJavascriptInterface(
                     object {
                         @Suppress("unused")
@@ -492,7 +559,8 @@ private fun HTMLContentView(
                         request: WebResourceRequest,
                         errorResponse: WebResourceResponse,
                     ) {
-                        if (request.url.toString().startsWith(apiHostURL)) {
+                        val failedUrl = request.url.toString()
+                        if (failedUrl == view.url && failedUrl.startsWith(apiHostURL)) {
                             when (errorResponse.statusCode) {
                                 403, 401, 404 -> {
                                     coroutineScope.launch {

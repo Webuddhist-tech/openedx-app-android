@@ -4,6 +4,8 @@
     <string name="course_view_certificate">View certificate</string>
     <string name="course_navigation_prev">Prev</string>
     <string name="course_navigation_next">Next</string>
+    <string name="course_block_position">%1$s/%2$s</string>
+    <string name="course_block_position_spoken">%1$s of %2$s</string>
     <string name="course_navigation_finish">Finish</string>
     <string name="course_handouts">Handouts</string>
     <string name="course_announcements">Announcements</string>

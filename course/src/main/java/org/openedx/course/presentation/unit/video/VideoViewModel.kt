@@ -52,7 +52,7 @@ class VideoViewModel(
                         courseId,
                         listOf(blockId)
                     )
-                    notifier.send(CourseCompletionSet())
+                    notifier.send(CourseCompletionSet(courseId, blockId))
                 } catch (e: Exception) {
                     e.printStackTrace()
                     isBlockAlreadyCompleted = false

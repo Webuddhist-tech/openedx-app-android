@@ -23,7 +23,7 @@ class CourseUnitContainerAdapter(
 
     override fun getItemCount(): Int = blocks.size
 
-    override fun createFragment(position: Int): Fragment = unitBlockFragment(blocks[position])
+    override fun createFragment(position: Int): Fragment = unitBlockFragment(blocks[position], position)
 
     fun getBlock(position: Int): Block = blocks[position]
 
@@ -45,7 +45,7 @@ class CourseUnitContainerAdapter(
         }
     }
 
-    private fun unitBlockFragment(block: Block): Fragment {
+    private fun unitBlockFragment(block: Block, position: Int): Fragment {
         val downloadedModel = viewModel.getDownloadModelById(block.id)
         val offlineUrl = downloadedModel?.let { it.path + File.separator + "index.html" } ?: ""
         val noNetwork = !viewModel.hasNetworkConnection
@@ -56,15 +56,15 @@ class CourseUnitContainerAdapter(
             }
 
             isBlockNotDownloaded(block, noNetwork, offlineUrl) -> {
-                createNotAvailableUnitFragment(block, NotAvailableUnitType.NOT_DOWNLOADED)
+                createNotAvailableUnitFragment(block, NotAvailableUnitType.NOT_DOWNLOADED, position)
             }
 
             isBlockOfflineUnsupported(block, noNetwork) -> {
-                createNotAvailableUnitFragment(block, NotAvailableUnitType.OFFLINE_UNSUPPORTED)
+                createNotAvailableUnitFragment(block, NotAvailableUnitType.OFFLINE_UNSUPPORTED, position)
             }
 
             isVideoBlockAvailable(block) -> {
-                createVideoFragment(block)
+                createVideoFragment(block, position)
             }
 
             isDiscussionBlockAvailable(block) -> {
@@ -72,11 +72,11 @@ class CourseUnitContainerAdapter(
             }
 
             isSupportedHtmlBlock(block) -> {
-                createHtmlUnitFragment(block, downloadedModel, noNetwork, offlineUrl)
+                createHtmlUnitFragment(block, downloadedModel, noNetwork, offlineUrl, position)
             }
 
             else -> {
-                createNotAvailableUnitFragment(block, NotAvailableUnitType.MOBILE_UNSUPPORTED)
+                createNotAvailableUnitFragment(block, NotAvailableUnitType.MOBILE_UNSUPPORTED, position)
             }
         }
     }
@@ -121,7 +121,8 @@ class CourseUnitContainerAdapter(
         block: Block,
         downloadedModel: DownloadModel?,
         noNetwork: Boolean,
-        offlineUrl: String
+        offlineUrl: String,
+        position: Int,
     ): Fragment {
         val lastModified = if (downloadedModel != null && noNetwork) {
             downloadedModel.lastModified ?: ""
@@ -133,15 +134,32 @@ class CourseUnitContainerAdapter(
             block.studentViewUrl,
             viewModel.courseId,
             offlineUrl,
-            lastModified
+            lastModified,
+            block.displayName,
+            block.type.name,
+            position,
+            blocks.size,
+            !viewModel.isCourseUnitProgressEnabled
         )
     }
 
-    private fun createNotAvailableUnitFragment(block: Block, type: NotAvailableUnitType): Fragment {
-        return NotAvailableUnitFragment.newInstance(block.id, block.lmsWebUrl, type)
+    private fun createNotAvailableUnitFragment(
+        block: Block,
+        type: NotAvailableUnitType,
+        position: Int,
+    ): Fragment {
+        return NotAvailableUnitFragment.newInstance(
+            block.id,
+            block.lmsWebUrl,
+            type,
+            block.displayName,
+            position,
+            blocks.size,
+            !viewModel.isCourseUnitProgressEnabled
+        )
     }
 
-    private fun createVideoFragment(block: Block): Fragment {
+    private fun createVideoFragment(block: Block, position: Int): Fragment {
         val encodedVideos = block.studentViewData!!.encodedVideos!!
         val transcripts = block.studentViewData!!.transcripts ?: emptyMap()
         val downloadedModel = viewModel.getDownloadModelById(block.id)
@@ -155,7 +173,10 @@ class CourseUnitContainerAdapter(
                 videoUrl,
                 transcripts,
                 block.displayName,
-                isDownloaded
+                isDownloaded,
+                position,
+                blocks.size,
+                showBlockHeader()
             )
         } else {
             YoutubeVideoUnitFragment.newInstance(
@@ -163,9 +184,16 @@ class CourseUnitContainerAdapter(
                 viewModel.courseId,
                 encodedVideos.youtube?.url ?: "",
                 transcripts,
-                block.displayName
+                block.displayName,
+                position,
+                blocks.size,
+                showBlockHeader()
             )
         }
+    }
+
+    private fun showBlockHeader(): Boolean {
+        return !viewModel.isCourseUnitProgressEnabled && viewModel.mode != CourseViewMode.VIDEOS
     }
 
     private fun createDiscussionFragment(block: Block): Fragment {
