@@ -29,8 +29,9 @@ import org.openedx.course.R
 import org.openedx.course.databinding.FragmentYoutubeVideoUnitBinding
 import org.openedx.course.presentation.CourseAnalyticsKey
 import org.openedx.course.presentation.CourseRouter
+import org.openedx.core.BlockType
+import org.openedx.course.presentation.ui.UnitBlockHeader
 import org.openedx.course.presentation.ui.VideoSubtitles
-import org.openedx.course.presentation.ui.VideoTitle
 import org.openedx.foundation.extension.computeWindowSizeClasses
 import org.openedx.foundation.extension.objectToString
 import org.openedx.foundation.extension.stringToObject
@@ -94,7 +95,14 @@ class YoutubeVideoUnitFragment : Fragment(R.layout.fragment_youtube_video_unit) 
 
         binding.cvVideoTitle?.setContent {
             OpenEdXTheme {
-                VideoTitle(text = requireArguments().getString(ARG_TITLE) ?: "")
+                if (requireArguments().getBoolean(ARG_SHOW_HEADER, false)) {
+                    UnitBlockHeader(
+                        title = requireArguments().getString(ARG_TITLE) ?: "",
+                        blockType = BlockType.VIDEO,
+                        index = requireArguments().getInt(ARG_BLOCK_INDEX, 0),
+                        count = requireArguments().getInt(ARG_BLOCK_COUNT, 1)
+                    )
+                }
             }
         }
 
@@ -255,6 +263,9 @@ class YoutubeVideoUnitFragment : Fragment(R.layout.fragment_youtube_video_unit) 
         private const val ARG_BLOCK_ID = "blockId"
         private const val ARG_COURSE_ID = "courseId"
         private const val ARG_TITLE = "blockTitle"
+        private const val ARG_BLOCK_INDEX = "blockIndex"
+        private const val ARG_BLOCK_COUNT = "blockCount"
+        private const val ARG_SHOW_HEADER = "showHeader"
 
         const val VIDEO_COMPLETION_THRESHOLD = 0.8f
         const val RATE_DIALOG_THRESHOLD = 0.99f
@@ -265,6 +276,9 @@ class YoutubeVideoUnitFragment : Fragment(R.layout.fragment_youtube_video_unit) 
             videoUrl: String,
             transcriptsUrl: Map<String, String>,
             blockTitle: String,
+            blockIndex: Int = 0,
+            blockCount: Int = 1,
+            showHeader: Boolean = false,
         ): YoutubeVideoUnitFragment {
             val fragment = YoutubeVideoUnitFragment()
             fragment.arguments = bundleOf(
@@ -272,7 +286,10 @@ class YoutubeVideoUnitFragment : Fragment(R.layout.fragment_youtube_video_unit) 
                 ARG_TRANSCRIPT_URL to objectToString(transcriptsUrl),
                 ARG_BLOCK_ID to blockId,
                 ARG_COURSE_ID to courseId,
-                ARG_TITLE to blockTitle
+                ARG_TITLE to blockTitle,
+                ARG_BLOCK_INDEX to blockIndex,
+                ARG_BLOCK_COUNT to blockCount,
+                ARG_SHOW_HEADER to showHeader,
             )
             return fragment
         }

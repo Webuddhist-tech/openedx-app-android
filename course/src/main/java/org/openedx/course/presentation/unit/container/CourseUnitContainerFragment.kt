@@ -60,8 +60,8 @@ import org.openedx.course.presentation.ui.CourseVideoItem
 import org.openedx.course.presentation.ui.HorizontalPageIndicator
 import org.openedx.course.presentation.ui.NavigationUnitsButtons
 import org.openedx.course.presentation.ui.SubSectionUnitsList
-import org.openedx.course.presentation.ui.SubSectionUnitsTitle
-import org.openedx.course.presentation.ui.VerticalPageIndicator
+import org.openedx.course.presentation.ui.UnitProgressDashes
+import org.openedx.course.presentation.ui.UnitScreenHeader
 import org.openedx.foundation.extension.serializable
 
 class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_container) {
@@ -183,7 +183,22 @@ class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_conta
     private fun setupViewPagerInsets() {
         val insetHolder = requireActivity() as InsetHolder
         val containerParams = binding.viewPager.layoutParams as ConstraintLayout.LayoutParams
-        containerParams.bottomMargin = insetHolder.bottomInset
+        val cardGap = (CARD_BOTTOM_GAP_DP * resources.displayMetrics.density).toInt()
+        when {
+            viewModel.isCourseUnitProgressEnabled -> {
+                containerParams.bottomToTop = ConstraintLayout.LayoutParams.UNSET
+                containerParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+                containerParams.bottomMargin = insetHolder.bottomInset
+            }
+
+            containerParams.bottomToTop == R.id.cv_navigationBar -> {
+                containerParams.bottomMargin = cardGap
+            }
+
+            else -> {
+                containerParams.bottomMargin = insetHolder.bottomInset + cardGap
+            }
+        }
         binding.viewPager.layoutParams = containerParams
     }
 
@@ -219,6 +234,7 @@ class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_conta
     }
 
     private fun setupProgressIndicators() {
+        binding.cvCount.isVisible = false
         if (viewModel.isCourseUnitProgressEnabled) {
             binding.horizontalProgress.setContent {
                 OpenEdXTheme {
@@ -238,65 +254,55 @@ class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_conta
             }
             binding.horizontalProgress.isVisible = true
         } else {
-            binding.cvCount.setContent {
+            binding.horizontalProgress.setContent {
                 OpenEdXTheme {
                     val index by viewModel.indexInContainer.observeAsState(0)
-                    val units by viewModel.verticalBlockCounts.observeAsState(0)
-
-                    VerticalPageIndicator(
-                        numberOfPages = units,
-                        selectedColor = MaterialTheme.appColors.primary,
-                        defaultColor = MaterialTheme.appColors.bottomSheetToggle,
-                        selectedPage = index,
-                        defaultRadius = 3.dp,
-                        selectedLength = 5.dp,
-                        modifier = Modifier.width(24.dp)
+                    val descendantsBlocks by viewModel.descendantsBlocks.collectAsState()
+                    UnitProgressDashes(
+                        count = descendantsBlocks.size,
+                        selectedIndex = index
                     )
                 }
             }
-            binding.cvCount.isVisible = true
+            binding.horizontalProgress.isVisible = true
         }
     }
 
     private fun setupBackButton() {
         binding.btnBack.setContent {
-            val title = if (viewModel.isCourseExpandableSectionsEnabled) {
-                val unitBlocks by viewModel.subSectionUnitBlocks.collectAsState()
-                unitBlocks.firstOrNull()?.let {
-                    viewModel.getSubSectionBlock(it.id).displayName
-                } ?: ""
-            } else {
-                val index by viewModel.indexInContainer.observeAsState(0)
-                val descendantsBlocks by viewModel.descendantsBlocks.collectAsState()
-                descendantsBlocks.getOrNull(index)?.displayName ?: ""
+            OpenEdXTheme {
+                if (viewModel.mode == CourseViewMode.VIDEOS) {
+                    val index by viewModel.indexInContainer.observeAsState(0)
+                    val descendantsBlocks by viewModel.descendantsBlocks.collectAsState()
+                    CourseUnitToolbar(
+                        title = descendantsBlocks.getOrNull(index)?.displayName.orEmpty(),
+                        onBackClick = { navigateToParentFragment() }
+                    )
+                } else {
+                    val unitBlocks by viewModel.subSectionUnitBlocks.collectAsState()
+                    val unitsListShowed by viewModel.unitsListShowed.observeAsState(false)
+                    val currentUnit = unitBlocks.firstOrNull { it.id == viewModel.unitId }
+                    val subsectionName = currentUnit?.let { unit ->
+                        runCatching { viewModel.getSubSectionBlock(unit.id).displayName }.getOrDefault("")
+                    }.orEmpty()
+                    UnitScreenHeader(
+                        subsectionName = subsectionName,
+                        unitName = currentUnit?.displayName.orEmpty(),
+                        unitCount = unitBlocks.size,
+                        listOpen = unitsListShowed,
+                        pillEnabled = viewModel.isCourseExpandableSectionsEnabled,
+                        onBackClick = { navigateToParentFragment() },
+                        onPillClick = { handleUnitsClick() }
+                    )
+                }
             }
-
-            CourseUnitToolbar(
-                title = title,
-                onBackClick = { navigateToParentFragment() }
-            )
         }
     }
 
     private fun setupSubSectionUnits() {
+        binding.subSectionUnitsTitle.isGone = true
         if (viewModel.isCourseExpandableSectionsEnabled) {
-            binding.subSectionUnitsTitle.setContent {
-                val unitBlocks by viewModel.subSectionUnitBlocks.collectAsState()
-                val currentUnit = unitBlocks.firstOrNull { it.id == viewModel.unitId }
-                val unitName = currentUnit?.displayName ?: ""
-                val unitsListShowed by viewModel.unitsListShowed.observeAsState(false)
-
-                OpenEdXTheme {
-                    SubSectionUnitsTitle(
-                        unitName = unitName,
-                        unitsCount = unitBlocks.size,
-                        unitsListShowed = unitsListShowed,
-                        onUnitsClick = { handleUnitsClick() }
-                    )
-                }
-            }
-
-            binding.subSectionUnitsBg.setOnClickListener { handleUnitsClick() }
+            binding.subSectionUnitsBg.setOnClickListener { closeUnitsList() }
 
             binding.subSectionUnitsList.setContent {
                 val unitBlocks by viewModel.subSectionUnitBlocks.collectAsState()
@@ -330,6 +336,8 @@ class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_conta
     private fun setupVideoList() {
         binding.videoList?.setContent {
             OpenEdXTheme {
+                val videoBlocks by viewModel.videoList.collectAsState()
+                if (viewModel.mode != CourseViewMode.VIDEOS && videoBlocks.isEmpty()) return@OpenEdXTheme
                 Column {
                     VideoList(
                         onVideoClick = { block ->
@@ -532,14 +540,19 @@ class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_conta
 
     private fun handleUnitsClick() {
         if (binding.subSectionUnitsList.isVisible) {
-            binding.subSectionUnitsList.visibility = View.GONE
-            binding.subSectionUnitsBg.visibility = View.GONE
-            viewModel.setUnitsListVisibility(false)
+            closeUnitsList()
         } else {
             binding.subSectionUnitsList.visibility = View.VISIBLE
             binding.subSectionUnitsBg.visibility = View.VISIBLE
             viewModel.setUnitsListVisibility(true)
         }
+    }
+
+    private fun closeUnitsList() {
+        if (!binding.subSectionUnitsList.isVisible) return
+        binding.subSectionUnitsList.visibility = View.GONE
+        binding.subSectionUnitsBg.visibility = View.GONE
+        viewModel.setUnitsListVisibility(false)
     }
 
     @Composable
@@ -728,6 +741,7 @@ class CourseUnitContainerFragment : Fragment(R.layout.fragment_course_unit_conta
         private const val UNIT_ID = "unitId"
         private const val ARG_COMPONENT_ID = "componentId"
         private const val ARG_MODE = "mode"
+        private const val CARD_BOTTOM_GAP_DP = 8
 
         fun newInstance(
             courseId: String,

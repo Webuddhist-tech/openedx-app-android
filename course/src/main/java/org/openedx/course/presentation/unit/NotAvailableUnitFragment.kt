@@ -3,6 +3,7 @@ package org.openedx.course.presentation.unit
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import org.openedx.core.BlockType
 import org.openedx.core.ui.theme.OpenEdXTheme
 import org.openedx.core.ui.theme.appColors
 import org.openedx.core.ui.theme.appShapes
@@ -45,6 +47,7 @@ import org.openedx.foundation.presentation.WindowSize
 import org.openedx.foundation.presentation.rememberWindowSize
 import org.openedx.foundation.presentation.windowSizeValue
 import org.openedx.core.R as coreR
+import org.openedx.course.presentation.ui.UnitBlockHeader
 import org.openedx.course.R as courseR
 
 class NotAvailableUnitFragment : Fragment() {
@@ -65,6 +68,7 @@ class NotAvailableUnitFragment : Fragment() {
         setContent {
             OpenEdXTheme {
                 val windowSize = rememberWindowSize()
+                val showHeader = requireArguments().getBoolean(ARG_SHOW_HEADER, false)
                 val uriHandler = LocalUriHandler.current
                 val uri = requireArguments().getString(ARG_BLOCK_URL, "")
                 val title: String
@@ -95,12 +99,26 @@ class NotAvailableUnitFragment : Fragment() {
                         return@OpenEdXTheme
                     }
                 }
-                NotAvailableUnitScreen(
-                    windowSize = windowSize,
-                    title = title,
-                    description = description,
-                    buttonAction = buttonAction
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.appColors.unitCanvas)
+                ) {
+                    if (showHeader) {
+                        UnitBlockHeader(
+                            title = requireArguments().getString(ARG_BLOCK_TITLE, ""),
+                            blockType = BlockType.HTML,
+                            index = requireArguments().getInt(ARG_BLOCK_INDEX, 0),
+                            count = requireArguments().getInt(ARG_BLOCK_COUNT, 1)
+                        )
+                    }
+                    NotAvailableUnitScreen(
+                        windowSize = windowSize,
+                        title = title,
+                        description = description,
+                        buttonAction = buttonAction
+                    )
+                }
             }
         }
     }
@@ -109,15 +127,27 @@ class NotAvailableUnitFragment : Fragment() {
         private const val ARG_BLOCK_ID = "blockId"
         private const val ARG_BLOCK_URL = "blockUrl"
         private const val ARG_UNIT_TYPE = "notAvailableUnitType"
+        private const val ARG_BLOCK_TITLE = "blockTitle"
+        private const val ARG_BLOCK_INDEX = "blockIndex"
+        private const val ARG_BLOCK_COUNT = "blockCount"
+        private const val ARG_SHOW_HEADER = "showHeader"
         fun newInstance(
             blockId: String,
             blockUrl: String,
             unitType: NotAvailableUnitType,
+            blockTitle: String = "",
+            blockIndex: Int = 0,
+            blockCount: Int = 1,
+            showHeader: Boolean = false,
         ): NotAvailableUnitFragment {
             val fragment = NotAvailableUnitFragment()
             fragment.arguments = bundleOf(
                 ARG_BLOCK_ID to blockId,
                 ARG_BLOCK_URL to blockUrl,
+                ARG_BLOCK_TITLE to blockTitle,
+                ARG_BLOCK_INDEX to blockIndex,
+                ARG_BLOCK_COUNT to blockCount,
+                ARG_SHOW_HEADER to showHeader,
                 ARG_UNIT_TYPE to unitType
             )
             return fragment
@@ -134,7 +164,8 @@ private fun NotAvailableUnitScreen(
 ) {
     val scrollState = rememberScrollState()
     Scaffold(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        containerColor = MaterialTheme.appColors.unitCanvas
     ) {
         val contentWidth by remember(key1 = windowSize) {
             mutableStateOf(

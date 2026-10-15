@@ -371,5 +371,6 @@ class CourseUnitContainerViewModelTest {
         courseNotifier.send(CourseCompletionSet("course", "problem"))
         advanceUntilIdle()
         assertEquals(1.0, viewModel.descendantsBlocks.value.single().completion, 0.0)
+        assertEquals(1.0, viewModel.subSectionUnitBlocks.value.single().completion, 0.0)
     }
 }
