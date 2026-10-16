@@ -36,13 +36,14 @@ interface CourseApi {
     ): CourseEnrollments
 
     @GET(
+        // Multilingual Text is a component-level container; depth 4 keeps its translations under the parent.
         "/api/mobile/{api_version}/course_info/blocks/?" +
                 "depth=all&" +
                 "requested_fields=contains_gated_content,show_gated_sections,gated_content,special_exam_info,graded,format," +
                 "student_view_multi_device,due,completion&" +
                 "student_view_data=video,discussion&" +
                 "block_counts=video&" +
-                "nav_depth=3"
+                "nav_depth=4"
     )
     suspend fun getCourseStructure(
         @Header("Cache-Control") cacheControlHeaderParam: String,
