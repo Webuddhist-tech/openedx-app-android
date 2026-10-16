@@ -45,10 +45,11 @@ data class CourseStructureModel(
     val progress: Progress?,
 ) {
     fun mapToDomain(): CourseStructure {
+        val normalizedBlocks = blockData.normalizeUnitDescendants()
         return CourseStructure(
             root = root,
-            blockData = blockData.map {
-                it.value.mapToDomain(blockData)
+            blockData = normalizedBlocks.map {
+                it.value.mapToDomain(normalizedBlocks)
             },
             id = id ?: "",
             name = name ?: "",
@@ -67,9 +68,10 @@ data class CourseStructureModel(
     }
 
     fun mapToRoomEntity(): CourseStructureEntity {
+        val normalizedBlocks = blockData.normalizeUnitDescendants()
         return CourseStructureEntity(
             root,
-            blocks = blockData.map { BlockDb.createFrom(it.value) },
+            blocks = normalizedBlocks.map { BlockDb.createFrom(it.value) },
             id = id ?: "",
             name = name ?: "",
             number = number ?: "",
@@ -84,5 +86,27 @@ data class CourseStructureModel(
             isSelfPaced = isSelfPaced ?: false,
             progress = progress?.mapToRoomEntity() ?: ProgressDb.DEFAULT_PROGRESS,
         )
+    }
+}
+
+internal fun Map<String, Block>.normalizeUnitDescendants(): Map<String, Block> {
+    val translationIds = values
+        .filter { it.type == "multilingual_text" }
+        .flatMap { it.descendants.orEmpty() }
+        .toSet()
+
+    return mapValues { (_, block) ->
+        if (block.type != "vertical") {
+            block
+        } else {
+            block.copy(
+                descendants = block.descendants.orEmpty()
+                    .flatMap { descendantId ->
+                        listOf(descendantId) + this[descendantId]?.descendants.orEmpty()
+                    }
+                    .filterNot(translationIds::contains)
+                    .distinct()
+            )
+        }
     }
 }
